@@ -1,0 +1,99 @@
+# Release workflow
+#
+# When a semver tag (v0.1.0) is pushed:
+# 1. Creates a GitHub release with auto-generated notes
+# 2. Updates the major version tag (v0) to point to this release
+# 3. Updates the minor version tag (v0.1) to point to this release
+#
+# Usage:
+#   git tag v0.1.0
+#   git push origin v0.1.0
+#
+# This allows users to reference:
+#   - strawgate/minimize-resolved-pr-reviews@v0       (latest v0.x.x)
+#   - strawgate/minimize-resolved-pr-reviews@v0.1     (latest v0.1.x)
+#   - strawgate/minimize-resolved-pr-reviews@v0.1.0   (exact version)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version info
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+          MAJOR=$(echo "$TAG" | grep -oE '^v[0-9]+')
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+
+          MINOR=$(echo "$TAG" | grep -oE '^v[0-9]+\.[0-9]+')
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+
+          SHA="${GITHUB_SHA}"
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+          echo "Creating release for $TAG (major: $MAJOR, minor: $MINOR, sha: $SHA)"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          MAJOR="${{ steps.version.outputs.major }}"
+          SHA="${{ steps.version.outputs.sha }}"
+
+          NOTES_HEADER="## Installation
+
+          \`\`\`yaml
+          # Use floating major version (recommended)
+          - uses: strawgate/minimize-resolved-pr-reviews@${MAJOR}
+
+          # Pin to this exact release
+          - uses: strawgate/minimize-resolved-pr-reviews@${TAG}
+
+          # Pin to commit SHA (maximum security)
+          - uses: strawgate/minimize-resolved-pr-reviews@${SHA}
+          \`\`\`
+
+          ---
+
+          "
+
+          gh release create "$TAG" \
+            --generate-notes \
+            --notes-start-tag "" \
+            --title "$TAG" \
+            --notes "${NOTES_HEADER}$(gh api repos/${{ github.repository }}/releases/generate-notes -f tag_name="$TAG" --jq '.body')"
+
+      - name: Update floating version tags
+        run: |
+          MAJOR="${{ steps.version.outputs.major }}"
+          MINOR="${{ steps.version.outputs.minor }}"
+          TAG="${{ steps.version.outputs.tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Update major version tag (e.g. v0)
+          git tag -fa "$MAJOR" "$TAG" -m "Release $TAG"
+          git push origin "$MAJOR" --force
+
+          # Update minor version tag (e.g. v0.1)
+          git tag -fa "$MINOR" "$TAG" -m "Release $TAG"
+          git push origin "$MINOR" --force
+
+          echo "Updated $MAJOR and $MINOR to point to $TAG"
