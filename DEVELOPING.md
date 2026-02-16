@@ -16,8 +16,8 @@ make install
 ```
 src/
   types.ts        # Shared interfaces (API types, business logic types, GraphQLClient)
-  reviews.ts      # Pure business logic (groupThreadsByReview, findCommentsToMinimize)
-  github.ts       # Thin GraphQL API wrappers (fetchReviewThreads, minimizeComment)
+  reviews.ts      # Pure business logic (groupThreadsByReview, findReviewsToMinimize)
+  github.ts       # Thin GraphQL API wrappers (fetchReviewThreads, minimizeReview)
   index.ts        # Entry point -- reads action inputs, orchestrates the above
   reviews.test.ts # Tests for reviews.ts
   github.test.ts  # Tests for github.ts

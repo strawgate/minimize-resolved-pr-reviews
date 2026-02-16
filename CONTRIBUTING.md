@@ -25,7 +25,7 @@ Code must pass lint and formatting checks. Run both before committing:
 make pre-commit
 ```
 
-This runs ESLint and the test suite. You can also run them individually:
+This runs Prettier, ESLint, and the test suite. You can also run them individually:
 
 ```bash
 make lint

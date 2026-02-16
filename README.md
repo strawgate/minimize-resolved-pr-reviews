@@ -58,8 +58,8 @@ Only minimize reviews from specific users (e.g. bots):
 
 | Output | Description |
 |--------|-------------|
-| `minimized-count` | Number of comments that were minimized |
-| `failed-count` | Number of comments that failed to minimize |
+| `minimized-count` | Number of reviews that were minimized |
+| `failed-count` | Number of reviews that failed to minimize |
 
 ## Permissions
 

@@ -17,9 +17,9 @@ inputs:
 
 outputs:
   minimized-count:
-    description: 'Number of comments that were minimized'
+    description: 'Number of reviews that were minimized'
   failed-count:
-    description: 'Number of comments that failed to minimize'
+    description: 'Number of reviews that failed to minimize'
 
 runs:
   using: 'docker'
