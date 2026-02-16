@@ -1,18 +1,18 @@
 # Minimize Resolved PR Reviews
 
-A GitHub Action that automatically minimizes resolved review threads in pull requests. This action uses the GitHub GraphQL API to identify review threads where all comments have been resolved and minimizes them, keeping your PR conversations clean and focused on unresolved issues.
+A GitHub Action that automatically minimizes resolved review comments in pull requests. When a reviewer submits multiple rounds of review, older reviews where every thread has been resolved are minimized, keeping your PR conversations focused on what still needs attention.
 
-## Features
+## How It Works
 
-- 🔍 **Smart Detection**: Identifies review threads where all comments are resolved
-- 🎯 **User Filtering**: Configure specific users whose reviews should be minimized
-- ⏱️ **Recent Review Protection**: Never minimizes the most recent review from each user
-- 🔒 **Safe**: Only minimizes threads that are already resolved
-- 📊 **Detailed Logging**: Provides clear output about what was minimized and what was skipped
+1. Fetches all review threads for the pull request
+2. Groups threads by their parent review
+3. For each reviewer, identifies their most recent review and always keeps it visible
+4. Older reviews where **all** threads are resolved are minimized (the entire review has been addressed)
+5. Older reviews with any unresolved threads are left alone
 
 ## Usage
 
-### Basic Example
+### Basic
 
 ```yaml
 name: Minimize Resolved Reviews
@@ -21,6 +21,9 @@ on:
     types: [submitted]
   pull_request_review_comment:
     types: [created, edited]
+
+permissions:
+  pull-requests: write
 
 jobs:
   minimize:
@@ -34,18 +37,9 @@ jobs:
 
 ### With User Filtering
 
-```yaml
-name: Minimize Resolved Reviews
-on:
-  pull_request_review:
-    types: [submitted]
-  pull_request_review_comment:
-    types: [created, edited]
+Only minimize reviews from specific users (e.g. bots):
 
-jobs:
-  minimize:
-    runs-on: ubuntu-latest
-    steps:
+```yaml
       - name: Minimize resolved review threads
         uses: strawgate/minimize-resolved-pr-reviews@v1
         with:
@@ -64,89 +58,16 @@ jobs:
 
 | Output | Description |
 |--------|-------------|
-| `minimized-count` | Number of review threads that were minimized |
-| `skipped-count` | Number of review threads that were skipped |
-
-## Behavior
-
-The action will:
-
-1. Fetch all review threads and reviews for the current pull request
-2. Identify threads where all comments are resolved
-3. For each resolved thread:
-   - Skip if already minimized
-   - Skip if the thread author is not in the allowed users list (if specified)
-   - Skip if it's the most recent review from that user
-   - Otherwise, minimize the thread
-
-This ensures that:
-- Only resolved threads are minimized
-- The most recent activity from each reviewer remains visible
-- You can control which users' reviews are affected
+| `minimized-count` | Number of comments that were minimized |
+| `failed-count` | Number of comments that failed to minimize |
 
 ## Permissions
 
-The action requires the following permissions in your workflow:
-
 ```yaml
 permissions:
   pull-requests: write
-  contents: read
-```
-
-## Example Workflow
-
-Here's a complete example that runs whenever a review is submitted or a review comment is created/edited:
-
-```yaml
-name: Clean Up PR Reviews
-
-on:
-  pull_request_review:
-    types: [submitted]
-  pull_request_review_comment:
-    types: [created, edited]
-
-permissions:
-  pull-requests: write
-  contents: read
-
-jobs:
-  minimize-resolved-reviews:
-    runs-on: ubuntu-latest
-    name: Minimize resolved review threads
-    steps:
-      - name: Minimize resolved threads
-        uses: strawgate/minimize-resolved-pr-reviews@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          users: 'dependabot,renovate'
-```
-
-## Development
-
-### Setup
-
-```bash
-npm install
-```
-
-### Build
-
-```bash
-npm run build
-```
-
-### Lint
-
-```bash
-npm run lint
 ```
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
