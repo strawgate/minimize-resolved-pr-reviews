@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Minimize resolved review threads
-        uses: strawgate/minimize-resolved-pr-reviews@v1
+        uses: strawgate/minimize-resolved-pr-reviews@v0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -41,7 +41,7 @@ Only minimize reviews from specific users (e.g. bots):
 
 ```yaml
       - name: Minimize resolved review threads
-        uses: strawgate/minimize-resolved-pr-reviews@v1
+        uses: strawgate/minimize-resolved-pr-reviews@v0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           users: 'dependabot,renovate,github-actions'

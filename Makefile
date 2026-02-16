@@ -1,4 +1,4 @@
-.PHONY: install build test lint format docker-build pre-commit clean
+.PHONY: install build test lint format docker-build pre-commit clean release-patch release-minor release-major
 
 install:
 	npm ci
@@ -22,3 +22,15 @@ pre-commit: format lint test
 
 clean:
 	rm -rf dist/
+
+release-patch:
+	npm version patch
+	git push && git push --tags
+
+release-minor:
+	npm version minor
+	git push && git push --tags
+
+release-major:
+	npm version major
+	git push && git push --tags
