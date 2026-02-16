@@ -1,0 +1,5 @@
+line 1: hello world
+line 2: foo bar
+line 3: baz qux
+line 4: testing
+line 5: smoke test
