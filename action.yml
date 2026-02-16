@@ -1,0 +1,26 @@
+name: 'Minimize Resolved PR Reviews'
+description: 'Minimizes older fully-resolved PR reviews, keeping the most recent review from each user visible'
+author: 'strawgate'
+branding:
+  icon: 'minimize-2'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token with permissions to read and write PR reviews'
+    required: true
+    default: ${{ github.token }}
+  users:
+    description: 'Comma-separated list of usernames whose reviews should be considered for minimization (leave empty to consider all users)'
+    required: false
+    default: ''
+
+outputs:
+  minimized-count:
+    description: 'Number of comments that were minimized'
+  failed-count:
+    description: 'Number of comments that failed to minimize'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
