@@ -1,0 +1,20 @@
+name: 'Minimize Resolved PR Reviews'
+description: 'Minimizes resolved review threads that are not the most recent review from each user'
+author: 'strawgate'
+branding:
+  icon: 'minimize-2'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: 'GitHub token with permissions to read and write PR reviews'
+    required: true
+    default: ${{ github.token }}
+  users:
+    description: 'Comma-separated list of usernames whose reviews should be considered for minimization (leave empty to consider all users)'
+    required: false
+    default: ''
+  
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
