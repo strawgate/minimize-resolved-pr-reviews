@@ -1,7 +1,7 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { groupThreadsByReview, findReviewsToMinimize } from "./reviews";
-import { fetchReviewThreads, minimizeReview } from "./github";
+import { buildReviewList, findReviewsToMinimize } from "./reviews";
+import { fetchPullRequestData, minimizeReview } from "./github";
 
 async function run(): Promise<void> {
   try {
@@ -32,10 +32,17 @@ async function run(): Promise<void> {
 
     const octokit = github.getOctokit(token);
 
-    const threads = await fetchReviewThreads(octokit, owner, repo, prNumber);
-    core.info(`Found ${threads.length} review threads`);
+    const { threads, reviews: rawReviews } = await fetchPullRequestData(
+      octokit,
+      owner,
+      repo,
+      prNumber,
+    );
+    core.info(
+      `Found ${threads.length} review threads across ${rawReviews.length} reviews`,
+    );
 
-    const reviews = groupThreadsByReview(threads);
+    const reviews = buildReviewList(threads, rawReviews);
     const authors = new Set(reviews.map((r) => r.author));
     core.info(`Found ${reviews.length} reviews from ${authors.size} users`);
 

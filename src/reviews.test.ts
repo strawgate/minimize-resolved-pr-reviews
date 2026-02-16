@@ -1,5 +1,9 @@
-import { ReviewThread, ReviewInfo } from "./types";
-import { groupThreadsByReview, findReviewsToMinimize } from "./reviews";
+import { ReviewThread, ReviewInfo, PullRequestReviewNode } from "./types";
+import {
+  groupThreadsByReview,
+  buildReviewList,
+  findReviewsToMinimize,
+} from "./reviews";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -150,6 +154,100 @@ describe("groupThreadsByReview", () => {
 
   it("returns empty array for empty input", () => {
     expect(groupThreadsByReview([])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildReviewList
+// ---------------------------------------------------------------------------
+
+function makeReviewNode(opts: {
+  id?: string;
+  authorLogin?: string | null;
+  createdAt?: string;
+  isMinimized?: boolean;
+}): PullRequestReviewNode {
+  return {
+    id: opts.id ?? nextId("review"),
+    author:
+      opts.authorLogin === null
+        ? null
+        : { login: opts.authorLogin ?? "alice" },
+    createdAt: opts.createdAt ?? "2025-01-01T00:00:00Z",
+    isMinimized: opts.isMinimized ?? false,
+  };
+}
+
+describe("buildReviewList", () => {
+  it("includes threadless reviews from the reviews connection", () => {
+    const threads = [
+      makeThread({
+        reviewId: "r1",
+        authorLogin: "alice",
+        reviewCreatedAt: "2025-01-01T00:00:00Z",
+        isResolved: true,
+      }),
+    ];
+    const allReviews = [
+      makeReviewNode({ id: "r1", authorLogin: "alice" }),
+      makeReviewNode({
+        id: "r2",
+        authorLogin: "alice",
+        createdAt: "2025-01-02T00:00:00Z",
+      }),
+    ];
+
+    const result = buildReviewList(threads, allReviews);
+
+    expect(result).toHaveLength(2);
+    const r1 = result.find((r) => r.reviewId === "r1")!;
+    expect(r1.threads).toHaveLength(1);
+    const r2 = result.find((r) => r.reviewId === "r2")!;
+    expect(r2.threads).toHaveLength(0);
+  });
+
+  it("does not duplicate reviews already found through threads", () => {
+    const threads = [
+      makeThread({ reviewId: "r1", authorLogin: "bob" }),
+    ];
+    const allReviews = [
+      makeReviewNode({ id: "r1", authorLogin: "bob" }),
+    ];
+
+    const result = buildReviewList(threads, allReviews);
+    expect(result).toHaveLength(1);
+    expect(result[0].reviewId).toBe("r1");
+  });
+
+  it("skips reviews with no author", () => {
+    const allReviews = [
+      makeReviewNode({ id: "r1", authorLogin: null }),
+    ];
+
+    const result = buildReviewList([], allReviews);
+    expect(result).toHaveLength(0);
+  });
+
+  it("prefers thread data over review node data for the same review", () => {
+    const threads = [
+      makeThread({
+        reviewId: "r1",
+        authorLogin: "alice",
+        isResolved: false,
+      }),
+    ];
+    const allReviews = [
+      makeReviewNode({ id: "r1", authorLogin: "alice" }),
+    ];
+
+    const result = buildReviewList(threads, allReviews);
+    expect(result).toHaveLength(1);
+    expect(result[0].threads).toHaveLength(1);
+    expect(result[0].threads[0].isResolved).toBe(false);
+  });
+
+  it("returns empty array when both inputs are empty", () => {
+    expect(buildReviewList([], [])).toEqual([]);
   });
 });
 
@@ -333,6 +431,35 @@ describe("findReviewsToMinimize", () => {
     expect(result).toContain("r1");
     expect(result).toContain("r2");
     expect(result).not.toContain("r3");
+  });
+
+  it("minimizes older resolved review when a newer threadless review exists", () => {
+    const reviews = [
+      makeReview({
+        reviewId: "r1",
+        createdAt: "2025-01-01T00:00:00Z",
+        threads: [{ isResolved: true }],
+      }),
+      makeReview({
+        reviewId: "r2",
+        createdAt: "2025-01-02T00:00:00Z",
+        threads: [],
+      }),
+    ];
+
+    expect(findReviewsToMinimize(reviews, [])).toEqual(["r1"]);
+  });
+
+  it("does not minimize a threadless review that is the only one from that author", () => {
+    const reviews = [
+      makeReview({
+        reviewId: "r1",
+        createdAt: "2025-01-01T00:00:00Z",
+        threads: [],
+      }),
+    ];
+
+    expect(findReviewsToMinimize(reviews, [])).toEqual([]);
   });
 
   it("returns empty array when no reviews are provided", () => {

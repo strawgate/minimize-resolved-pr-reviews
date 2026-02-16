@@ -1,4 +1,4 @@
-import { ReviewThread, ReviewInfo } from "./types";
+import { ReviewThread, ReviewInfo, PullRequestReviewNode } from "./types";
 
 /**
  * Groups raw review threads by their parent review.
@@ -29,6 +29,44 @@ export function groupThreadsByReview(threads: ReviewThread[]): ReviewInfo[] {
     reviewMap.get(review.id)!.threads.push({
       threadId: thread.id,
       isResolved: thread.isResolved,
+    });
+  }
+
+  return Array.from(reviewMap.values());
+}
+
+/**
+ * Builds the complete list of reviews by merging thread-grouped data with
+ * the full reviews list from the PR.
+ *
+ * Reviews discovered through threads already have their thread data populated.
+ * Reviews from the `reviews` connection that have no threads (e.g. bare
+ * approvals, comment-only reviews) are added with an empty thread array.
+ *
+ * Reviews with no author (deleted users) are skipped.
+ */
+export function buildReviewList(
+  threads: ReviewThread[],
+  allReviews: PullRequestReviewNode[],
+): ReviewInfo[] {
+  const reviewMap = new Map<string, ReviewInfo>();
+
+  // First pass: populate from threads (gives us thread data)
+  for (const info of groupThreadsByReview(threads)) {
+    reviewMap.set(info.reviewId, info);
+  }
+
+  // Second pass: add any reviews not discovered through threads
+  for (const review of allReviews) {
+    if (!review.author) continue;
+    if (reviewMap.has(review.id)) continue;
+
+    reviewMap.set(review.id, {
+      reviewId: review.id,
+      author: review.author.login,
+      createdAt: review.createdAt,
+      isMinimized: review.isMinimized,
+      threads: [],
     });
   }
 

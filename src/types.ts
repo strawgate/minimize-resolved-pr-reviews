@@ -32,6 +32,14 @@ export interface ReviewInfo {
   threads: ThreadInfo[];
 }
 
+/** A review from the PR's `reviews` connection. Includes reviews with no inline threads. */
+export interface PullRequestReviewNode {
+  id: string;
+  author: { login: string } | null;
+  createdAt: string;
+  isMinimized: boolean;
+}
+
 /** Minimal interface for making GraphQL calls. Easy to mock in tests. */
 export interface GraphQLClient {
   graphql: <T = unknown>(
