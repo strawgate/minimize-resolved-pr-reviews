@@ -7,10 +7,12 @@ interface ReviewThread {
   isCollapsed: boolean;
   comments: {
     nodes: Array<{
+      id: string;
       author: {
         login: string;
       };
       createdAt: string;
+      isMinimized: boolean;
     }>;
   };
 }
@@ -29,6 +31,12 @@ interface PullRequest {
   };
   reviews: {
     nodes: Review[];
+  };
+}
+
+interface GraphQLResponse {
+  repository: {
+    pullRequest: PullRequest;
   };
 }
 
@@ -76,6 +84,7 @@ async function run(): Promise<void> {
                       login
                     }
                     createdAt
+                    isMinimized
                   }
                 }
               }
@@ -94,13 +103,13 @@ async function run(): Promise<void> {
       }
     `;
 
-    const response: any = await octokit.graphql(query, {
+    const response = await octokit.graphql<GraphQLResponse>(query, {
       owner,
       repo,
       number: pullRequestNumber,
     });
 
-    const pullRequest: PullRequest = response.repository.pullRequest;
+    const pullRequest = response.repository.pullRequest;
     const reviewThreads = pullRequest.reviewThreads.nodes;
     const reviews = pullRequest.reviews.nodes;
 
@@ -172,28 +181,41 @@ async function run(): Promise<void> {
         continue;
       }
 
-      // Minimize the thread
-      core.info(`Minimizing resolved thread ${thread.id} from ${threadAuthor}`);
+      // Minimize all comments in the thread that are not already minimized
+      core.info(`Minimizing resolved thread from ${threadAuthor} with ${thread.comments.nodes.length} comments`);
       
-      try {
-        const minimizeMutation = `
-          mutation($subjectId: ID!) {
-            minimizeComment(input: { subjectId: $subjectId, classifier: RESOLVED }) {
-              minimizedComment {
-                isMinimized
+      let threadMinimizedCount = 0;
+      for (const comment of thread.comments.nodes) {
+        if (comment.isMinimized) {
+          core.debug(`Comment ${comment.id} is already minimized, skipping`);
+          continue;
+        }
+
+        try {
+          const minimizeMutation = `
+            mutation($subjectId: ID!) {
+              minimizeComment(input: { subjectId: $subjectId, classifier: RESOLVED }) {
+                minimizedComment {
+                  isMinimized
+                }
               }
             }
-          }
-        `;
+          `;
 
-        await octokit.graphql(minimizeMutation, {
-          subjectId: thread.id,
-        });
+          await octokit.graphql(minimizeMutation, {
+            subjectId: comment.id,
+          });
 
+          threadMinimizedCount++;
+          core.debug(`Successfully minimized comment ${comment.id}`);
+        } catch (error) {
+          core.warning(`Failed to minimize comment ${comment.id}: ${error}`);
+        }
+      }
+
+      if (threadMinimizedCount > 0) {
         minimizedCount++;
-        core.info(`Successfully minimized thread ${thread.id}`);
-      } catch (error) {
-        core.warning(`Failed to minimize thread ${thread.id}: ${error}`);
+        core.info(`Successfully minimized ${threadMinimizedCount} comments in thread`);
       }
     }
 

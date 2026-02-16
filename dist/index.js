@@ -30001,6 +30001,7 @@ async function run() {
                       login
                     }
                     createdAt
+                    isMinimized
                   }
                 }
               }
@@ -30080,26 +30081,37 @@ async function run() {
                 skippedCount++;
                 continue;
             }
-            // Minimize the thread
-            core.info(`Minimizing resolved thread ${thread.id} from ${threadAuthor}`);
-            try {
-                const minimizeMutation = `
-          mutation($subjectId: ID!) {
-            minimizeComment(input: { subjectId: $subjectId, classifier: RESOLVED }) {
-              minimizedComment {
-                isMinimized
+            // Minimize all comments in the thread that are not already minimized
+            core.info(`Minimizing resolved thread from ${threadAuthor} with ${thread.comments.nodes.length} comments`);
+            let threadMinimizedCount = 0;
+            for (const comment of thread.comments.nodes) {
+                if (comment.isMinimized) {
+                    core.debug(`Comment ${comment.id} is already minimized, skipping`);
+                    continue;
+                }
+                try {
+                    const minimizeMutation = `
+            mutation($subjectId: ID!) {
+              minimizeComment(input: { subjectId: $subjectId, classifier: RESOLVED }) {
+                minimizedComment {
+                  isMinimized
+                }
               }
             }
-          }
-        `;
-                await octokit.graphql(minimizeMutation, {
-                    subjectId: thread.id,
-                });
-                minimizedCount++;
-                core.info(`Successfully minimized thread ${thread.id}`);
+          `;
+                    await octokit.graphql(minimizeMutation, {
+                        subjectId: comment.id,
+                    });
+                    threadMinimizedCount++;
+                    core.debug(`Successfully minimized comment ${comment.id}`);
+                }
+                catch (error) {
+                    core.warning(`Failed to minimize comment ${comment.id}: ${error}`);
+                }
             }
-            catch (error) {
-                core.warning(`Failed to minimize thread ${thread.id}: ${error}`);
+            if (threadMinimizedCount > 0) {
+                minimizedCount++;
+                core.info(`Successfully minimized ${threadMinimizedCount} comments in thread`);
             }
         }
         core.info(`Summary: Minimized ${minimizedCount} threads, skipped ${skippedCount} threads`);
