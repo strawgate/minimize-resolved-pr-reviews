@@ -4,24 +4,46 @@ import {
   PullRequestReviewNode,
 } from "./types";
 
-interface PullRequestDataResponse {
+// -- Response types -----------------------------------------------------------
+
+interface PageInfo {
+  hasNextPage: boolean;
+  endCursor: string | null;
+}
+
+interface ReviewThreadsResponse {
   repository: {
     pullRequest: {
       reviewThreads: {
+        pageInfo: PageInfo;
         nodes: ReviewThread[];
       };
+    };
+  };
+}
+
+interface ReviewsResponse {
+  repository: {
+    pullRequest: {
       reviews: {
+        pageInfo: PageInfo;
         nodes: PullRequestReviewNode[];
       };
     };
   };
 }
 
-const PULL_REQUEST_DATA_QUERY = `
-  query($owner: String!, $repo: String!, $number: Int!) {
+// -- Queries ------------------------------------------------------------------
+
+const REVIEW_THREADS_QUERY = `
+  query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $number) {
-        reviewThreads(first: 100) {
+        reviewThreads(first: 100, after: $cursor) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           nodes {
             id
             isResolved
@@ -39,7 +61,20 @@ const PULL_REQUEST_DATA_QUERY = `
             }
           }
         }
-        reviews(first: 100) {
+      }
+    }
+  }
+`;
+
+const REVIEWS_QUERY = `
+  query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        reviews(first: 100, after: $cursor) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           nodes {
             id
             author {
@@ -64,22 +99,76 @@ const MINIMIZE_MUTATION = `
   }
 `;
 
-/** Fetches all review threads and reviews for a PR in a single query. */
+// -- Fetch helpers ------------------------------------------------------------
+
+/** Fetches all review threads for a PR, paginating as needed. */
+async function fetchAllReviewThreads(
+  client: GraphQLClient,
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<ReviewThread[]> {
+  const allThreads: ReviewThread[] = [];
+  let cursor: string | null = null;
+
+  for (;;) {
+    const response: ReviewThreadsResponse =
+      await client.graphql<ReviewThreadsResponse>(REVIEW_THREADS_QUERY, {
+        owner,
+        repo,
+        number: prNumber,
+        cursor,
+      });
+    const connection = response.repository.pullRequest.reviewThreads;
+    allThreads.push(...connection.nodes);
+    if (!connection.pageInfo.hasNextPage) break;
+    cursor = connection.pageInfo.endCursor;
+  }
+
+  return allThreads;
+}
+
+/** Fetches all reviews for a PR, paginating as needed. */
+async function fetchAllReviews(
+  client: GraphQLClient,
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<PullRequestReviewNode[]> {
+  const allReviews: PullRequestReviewNode[] = [];
+  let cursor: string | null = null;
+
+  for (;;) {
+    const response: ReviewsResponse =
+      await client.graphql<ReviewsResponse>(REVIEWS_QUERY, {
+        owner,
+        repo,
+        number: prNumber,
+        cursor,
+      });
+    const connection = response.repository.pullRequest.reviews;
+    allReviews.push(...connection.nodes);
+    if (!connection.pageInfo.hasNextPage) break;
+    cursor = connection.pageInfo.endCursor;
+  }
+
+  return allReviews;
+}
+
+// -- Public API ---------------------------------------------------------------
+
+/** Fetches all review threads and reviews for a PR, with full pagination. */
 export async function fetchPullRequestData(
   client: GraphQLClient,
   owner: string,
   repo: string,
   prNumber: number,
 ): Promise<{ threads: ReviewThread[]; reviews: PullRequestReviewNode[] }> {
-  const response = await client.graphql<PullRequestDataResponse>(
-    PULL_REQUEST_DATA_QUERY,
-    { owner, repo, number: prNumber },
-  );
-  const pr = response.repository.pullRequest;
-  return {
-    threads: pr.reviewThreads.nodes,
-    reviews: pr.reviews.nodes,
-  };
+  const [threads, reviews] = await Promise.all([
+    fetchAllReviewThreads(client, owner, repo, prNumber),
+    fetchAllReviews(client, owner, repo, prNumber),
+  ]);
+  return { threads, reviews };
 }
 
 /** Minimizes a review or comment by its node ID. */
