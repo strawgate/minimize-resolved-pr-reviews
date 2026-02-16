@@ -40,9 +40,15 @@ make test         # Run tests
 make lint         # Run ESLint
 make format       # Run Prettier
 make docker-build # Build the Docker image locally
-make pre-commit   # Run lint + test (use before committing)
-make clean        # Remove build artifacts
+make pre-commit     # Run format + lint + test (use before committing)
+make clean          # Remove build artifacts
+
+make release-patch  # Bump patch version, tag, and push
+make release-minor  # Bump minor version, tag, and push
+make release-major  # Bump major version, tag, and push
 ```
+
+See [RELEASE.md](RELEASE.md) for the full release process.
 
 Or use npm directly:
 
