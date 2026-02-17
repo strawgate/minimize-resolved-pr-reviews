@@ -1,6 +1,6 @@
 {
   "name": "minimize-resolved-pr-reviews",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "GitHub Action to minimize resolved PR review threads",
   "scripts": {
     "build": "ncc build src/index.ts -o dist",
