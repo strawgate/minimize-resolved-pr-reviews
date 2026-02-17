@@ -35,6 +35,39 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+### With `/tidy` Comment Trigger
+
+Allow maintainers to manually trigger minimization by commenting `/tidy` on a PR:
+
+```yaml
+name: Minimize Resolved Reviews
+on:
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created, edited]
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  minimize:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name != 'issue_comment' || (
+        contains(github.event.comment.body, '/tidy') &&
+        github.event.issue.pull_request &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    steps:
+      - name: Minimize resolved review threads
+        uses: strawgate/minimize-resolved-pr-reviews@v0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ### With User Filtering
 
 Only minimize reviews from specific users (e.g. bots):

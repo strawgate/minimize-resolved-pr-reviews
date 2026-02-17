@@ -19,14 +19,22 @@ async function run(): Promise<void> {
     );
 
     const context = github.context;
-    if (!context.payload.pull_request) {
-      core.setFailed("This action can only be run on pull request events");
-      return;
-    }
-
-    const prNumber = context.payload.pull_request.number;
     const owner = context.repo.owner;
     const repo = context.repo.repo;
+
+    // Extract PR number from whichever event triggered the action
+    const prNumber =
+      context.payload.pull_request?.number ??
+      context.payload.issue?.number;
+
+    if (!prNumber) {
+      core.setFailed(
+        "Could not determine PR number. " +
+          "This action must be triggered by a pull_request, pull_request_review, " +
+          "pull_request_review_comment, or issue_comment event.",
+      );
+      return;
+    }
 
     core.info(`Processing PR #${prNumber} in ${owner}/${repo}`);
 
